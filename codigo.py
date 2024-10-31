@@ -117,4 +117,5 @@ if __name__ == "__main__":
     print(depto)  # Muestra información del departamento
     print(proyecto)  # Muestra información del proyecto
     print(registro1)  # Muestra información del registro de tiempo 1
-    print(registro2)  # Muestra información del registro de tiempo 2
+    print(registro2)  # Muestra información del registro de tiempo2
+
