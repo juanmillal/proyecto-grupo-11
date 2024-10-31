@@ -1,0 +1,159 @@
+import sqlite3
+from abc import ABC, abstractmethod
+
+# Conexión a la base de datos
+def conectar_bd():
+    return sqlite3.connect("empresa.db")
+
+# Crear tablas en la base de datos
+def crear_tablas():
+    conexion = conectar_bd()
+    cursor = conexion.cursor()
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS Empleado (
+                        id INTEGER PRIMARY KEY,
+                        nombre TEXT,
+                        direccion TEXT,
+                        telefono TEXT,
+                        email TEXT,
+                        salario REAL,
+                        departamento_id INTEGER)''')
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS Departamento (
+                        id INTEGER PRIMARY KEY,
+                        nombre TEXT,
+                        gerente TEXT)''')
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS Proyecto (
+                        id INTEGER PRIMARY KEY,
+                        nombre TEXT,
+                        descripcion TEXT,
+                        fecha_inicio TEXT)''')
+    
+    cursor.execute('''CREATE TABLE IF NOT EXISTS RegistroTiempo (
+                        id INTEGER PRIMARY KEY,
+                        empleado_id INTEGER,
+                        proyecto_id INTEGER,
+                        fecha TEXT,
+                        horas REAL,
+                        descripcion TEXT)''')
+    
+    conexion.commit()
+    conexion.close()
+
+crear_tablas()
+
+# Clase abstracta Persona
+class Persona(ABC):
+    def __init__(self, nombre, direccion, telefono, email):
+        self.nombre = nombre
+        self.direccion = direccion
+        self.telefono = telefono
+        self.email = email
+
+    @abstractmethod
+    def presentarse(self):
+        pass
+
+# Clase Empleado, heredando de Persona
+class Empleado(Persona):
+    contador_id = 1
+
+    def __init__(self, nombre, direccion, telefono, email, salario):
+        super().__init__(nombre, direccion, telefono, email)
+        self.id = Empleado.contador_id
+        Empleado.contador_id += 1
+        self.salario = salario
+        self.departamento = None
+        self.proyectos = []
+
+    def asignar_departamento(self, departamento):
+        self.departamento = departamento
+
+    def asignar_proyecto(self, proyecto):
+        if proyecto not in self.proyectos:
+            self.proyectos.append(proyecto)
+
+    def presentarse(self):
+        return f"Soy {self.nombre}, trabajo en {self.departamento.nombre if self.departamento else 'N/A'}."
+
+    def guardar_en_bd(self):
+        conexion = conectar_bd()
+        cursor = conexion.cursor()
+        cursor.execute('''INSERT INTO Empleado (nombre, direccion, telefono, email, salario, departamento_id)
+                          VALUES (?, ?, ?, ?, ?, ?)''',
+                       (self.nombre, self.direccion, self.telefono, self.email, self.salario, self.departamento.id if self.departamento else None))
+        conexion.commit()
+        conexion.close()
+
+    def __str__(self):
+        return f"Empleado[{self.id}]: {self.nombre}, Email: {self.email}, Departamento: {self.departamento.nombre if self.departamento else 'N/A'}"
+
+# Clase Departamento
+class Departamento:
+    def __init__(self, nombre, gerente):
+        self.nombre = nombre
+        self.gerente = gerente
+        self.empleados = []
+
+    def agregar_empleado(self, empleado):
+        self.empleados.append(empleado)
+        empleado.asignar_departamento(self)
+
+    def guardar_en_bd(self):
+        conexion = conectar_bd()
+        cursor = conexion.cursor()
+        cursor.execute('INSERT INTO Departamento (nombre, gerente) VALUES (?, ?)', (self.nombre, self.gerente))
+        conexion.commit()
+        conexion.close()
+
+    def __str__(self):
+        return f"Departamento: {self.nombre}, Gerente: {self.gerente}, Empleados: {len(self.empleados)}"
+
+# Clase Proyecto
+class Proyecto:
+    def __init__(self, nombre, descripcion, fecha_inicio):
+        self.nombre = nombre
+        self.descripcion = descripcion
+        self.fecha_inicio = fecha_inicio
+        self.empleados = []
+        self.registros_tiempo = []
+
+    def asignar_empleado(self, empleado):
+        self.empleados.append(empleado)
+        empleado.asignar_proyecto(self)
+
+    def agregar_registro_tiempo(self, registro):
+        self.registros_tiempo.append(registro)
+
+    def guardar_en_bd(self):
+        conexion = conectar_bd()
+        cursor = conexion.cursor()
+        cursor.execute('INSERT INTO Proyecto (nombre, descripcion, fecha_inicio) VALUES (?, ?, ?)',
+                       (self.nombre, self.descripcion, self.fecha_inicio))
+        conexion.commit()
+        conexion.close()
+
+    def __str__(self):
+        return f"Proyecto: {self.nombre}, Fecha de inicio: {self.fecha_inicio}, Empleados asignados: {len(self.empleados)}"
+
+# Clase RegistroTiempo
+class RegistroTiempo:
+    def __init__(self, empleado, proyecto, fecha, horas, descripcion):
+        self.empleado = empleado
+        self.proyecto = proyecto
+        self.fecha = fecha
+        self.horas = horas
+        self.descripcion = descripcion
+
+    def guardar_en_bd(self):
+        conexion = conectar_bd()
+        cursor = conexion.cursor()
+        cursor.execute('''INSERT INTO RegistroTiempo (empleado_id, proyecto_id, fecha, horas, descripcion)
+                          VALUES (?, ?, ?, ?, ?)''',
+                       (self.empleado.id, self.proyecto.id, self.fecha, self.horas, self.descripcion))
+        conexion.commit()
+        conexion.close()
+
+    def __str__(self):
+        return f"{self.fecha} - {self.empleado.nombre} en {self.proyecto.nombre}: {self.horas} horas - {self.descripcion}"
