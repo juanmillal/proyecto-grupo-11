@@ -1,0 +1,115 @@
+import mysql.connector
+from abc import ABC, abstractmethod
+
+# Clase abstracta Persona
+class Persona(ABC):  # La clase abstracta 'Persona' define una plantilla bÃ¡sica
+    def __init__(self, nombre, direccion, telefono, email):
+        self.nombre = nombre
+        self.direccion = direccion
+        self.telefono = telefono
+        self.email = email
+
+    @abstractmethod
+    def presentarse(self):
+        pass
+
+# Clase Empleado, heredando de Persona
+class Empleado(Persona):
+    def __init__(self, nombre, direccion, telefono, email, salario):
+        super().__init__(nombre, direccion, telefono, email)
+        self.salario = salario
+
+# Clase EmpleadoDB que conecta a la base de datos MySQL
+class EmpleadoDB:
+    def __init__(self, host, user, password, database):
+        self.connection = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database
+        )
+        self.cursor = self.connection.cursor()
+        self._crear_tabla()
+
+    def _crear_tabla(self):
+        # Crea la tabla de empleados si no existe
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS empleados (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                nombre VARCHAR(255),
+                direccion VARCHAR(255),
+                telefono VARCHAR(50),
+                email VARCHAR(255),
+                salario FLOAT
+            )
+        ''')
+        self.connection.commit()
+
+    def agregar_empleado(self, empleado):
+        # Inserta un empleado en la base de datos
+        sql = "INSERT INTO empleados (nombre, direccion, telefono, email, salario) VALUES (%s, %s, %s, %s, %s)"
+        values = (empleado.nombre, empleado.direccion, empleado.telefono, empleado.email, empleado.salario)
+        self.cursor.execute(sql, values)
+        self.connection.commit()
+        print(f"Empleado {empleado.nombre} agregado exitosamente.")
+
+    def mostrar_empleados(self):
+        # Muestra todos los empleados almacenados en la base de datos
+        self.cursor.execute("SELECT id, nombre, direccion, telefono, email, salario FROM empleados")
+        empleados = self.cursor.fetchall()
+        for emp in empleados:
+            print(f"ID: {emp[0]}, Nombre: {emp[1]}, DirecciÃ³n: {emp[2]}, TelÃ©fono: {emp[3]}, Email: {emp[4]}, Salario: {emp[5]}")
+
+    def actualizar_empleado(self, id, nombre=None, direccion=None, telefono=None, email=None, salario=None):
+        # Actualiza los datos de un empleado en la base de datos
+        sql = "UPDATE empleados SET nombre = %s, direccion = %s, telefono = %s, email = %s, salario = %s WHERE id = %s"
+        values = (nombre, direccion, telefono, email, salario, id)
+        self.cursor.execute(sql, values)
+        self.connection.commit()
+        print(f"Empleado con ID {id} actualizado exitosamente.")
+
+    def eliminar_empleado(self, id):
+        # Elimina un empleado de la base de datos
+        sql = "DELETE FROM empleados WHERE id = %s"
+        self.cursor.execute(sql, (id,))
+        self.connection.commit()
+        print(f"Empleado con ID {id} eliminado exitosamente.")
+
+    def cerrar_conexion(self):
+        # Cierra la conexiÃ³n a la base de datos
+        self.cursor.close()
+        self.connection.close()
+
+# Ejemplo de uso de la conexiÃ³n a la base de datos
+if __name__ == "__main__":
+    # Conectar a la base de datos MySQL
+    db = EmpleadoDB(host="localhost", user="tu_usuario", password="tu_contraseÃ±a", database="empresa")
+
+    # Crear algunos empleados y agregarlos a la base de datos
+    emp1 = Empleado("Juan PÃ©rez", "Calle Falsa 123", "123456789", "juan@empresa.com", 50000)
+    emp2 = Empleado("Ana LÃ³pez", "Avenida Siempre Viva 456", "987654321", "ana@empresa.com", 55000)
+
+    # Agregar empleados a la base de datos
+    db.agregar_empleado(emp1)
+    db.agregar_empleado(emp2)
+
+    # Mostrar empleados almacenados en la base de datos
+    print("Empleados actuales en la base de datos:")
+    db.mostrar_empleados()
+
+    # Actualizar un empleado en la base de datos
+    db.actualizar_empleado(1, nombre="Juan P. RamÃ­rez", direccion="Calle Actualizada 123", telefono="111222333", email="juan.ramirez@empresa.com", salario=52000)
+
+    # Mostrar empleados despuÃ©s de la actualizaciÃ³n
+    print("\nEmpleados despuÃ©s de la actualizaciÃ³n:")
+    db.mostrar_empleados()
+
+    # Eliminar un empleado de la base de datos
+    db.eliminar_empleado(2)
+
+    # Mostrar empleados despuÃ©s de la eliminaciÃ³n
+    print("\nEmpleados despuÃ©s de la eliminaciÃ³n:")
+    db.mostrar_empleados()
+
+    # Cerrar la conexiÃ³n a la base de datos
+    db.cerrar_conexion()
