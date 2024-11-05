@@ -157,3 +157,19 @@ class RegistroTiempo:
 
     def __str__(self):
         return f"{self.fecha} - {self.empleado.nombre} en {self.proyecto.nombre}: {self.horas} horas - {self.descripcion}"
+
+empleado = Empleado("Carlos", "Avenida Siempre Viva 123", "987654321", "carlos@example.com", 44000)
+empleado.guardar_en_bd()
+
+# Función para consultar todos los empleados
+def consultar_empleados():
+    conexion = conectar_bd()
+    cursor = conexion.cursor()
+    cursor.execute("SELECT * FROM Empleado")
+    empleados = cursor.fetchall()
+    conexion.close()
+    return empleados
+
+print("Empleados guardados:")
+for emp in consultar_empleados():
+    print(emp)
