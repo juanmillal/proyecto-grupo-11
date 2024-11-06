@@ -180,4 +180,4 @@ def menu():
 
 # Ejecución del programa
 if __name__ == "__main__":
-    menu()  # Llama a la función para mostrar el menú
+    menu()  # Llama a la función para mostrar el menú.
