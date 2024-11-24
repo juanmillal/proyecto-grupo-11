@@ -1,5 +1,6 @@
-from abc import ABC, abstractmethod
 import mysql.connector
+from abc import ABC, abstractmethod
+import hashlib
 
 # Función para conectar a la base de datos
 def conectar_db():
@@ -16,10 +17,13 @@ def conectar_db():
         print(f"Error al conectar: {err}")
         return None
 
+# Función para cifrar la contraseña con SHA256
+def cifrar_contraseña(contraseña):
+    return hashlib.sha256(contraseña.encode()).hexdigest()
+
 # Clase abstracta Persona
 class Persona(ABC):
     def __init__(self, nombre, direccion, telefono, email):
-        # Inicializa los atributos de la persona
         self.nombre = nombre
         self.direccion = direccion
         self.telefono = telefono
@@ -31,118 +35,200 @@ class Persona(ABC):
 
 # Clase Empleado, heredando de Persona
 class Empleado(Persona):
-    contador_id = 1  # Atributo de clase para generar un ID único por empleado
-
-    def __init__(self, nombre, direccion, telefono, email, salario):
-        # Llama al constructor de la clase base (Persona)
+    def __init__(self, id, nombre, direccion, telefono, email, salario, rut, contraseña, rol):
         super().__init__(nombre, direccion, telefono, email)
-        self.id = Empleado.contador_id  # Asigna un ID único para el empleado
-        Empleado.contador_id += 1  # Incrementa el contador para el siguiente empleado
-        self.salario = salario  # Asigna el salario al empleado
+        self.id = id
+        self.salario = salario
+        self.rut = rut
+        self.contraseña = contraseña
+        self.rol = rol  # 'admin' o 'usuario'
 
     def presentarse(self):
-        # Método para que el empleado se presente
-        return f"Soy {self.nombre}."
+        return f"Soy {self.nombre}, empleado con ID {self.id} y mi salario es {self.salario}."
 
 # Clase para manejar la base de datos
 class BaseDeDatos:
     def __init__(self):
-        self.conexion = conectar_db()  # Se conecta a la base de datos
+        self.conexion = conectar_db()
+        if not self.conexion:
+            raise Exception("No se pudo conectar a la base de datos.")
 
     def cerrar_conexion(self):
-        # Cierra la conexión a la base de datos
         if self.conexion:
             self.conexion.close()
             print("Conexión cerrada.")
 
-    # Método para agregar un empleado
+    # Método para agregar un empleado a la base de datos
     def agregar_empleado(self, empleado):
-        cursor = self.conexion.cursor()
-        # Inserta los datos de la persona en la tabla "personas"
-        sql_persona = "INSERT INTO personas (nombre, direccion, telefono, email) VALUES (%s, %s, %s, %s)"
-        valores_persona = (empleado.nombre, empleado.direccion, empleado.telefono, empleado.email)
-        cursor.execute(sql_persona, valores_persona)
+        if not self.conexion:
+            print("La conexión a la base de datos no está disponible.")
+            return
 
-        # Inserta los datos específicos del empleado (salario) en la tabla "empleados"
-        sql_empleado = "INSERT INTO empleados (id, salario) VALUES (%s, %s)"
-        valores_empleado = (empleado.id, empleado.salario)
-        cursor.execute(sql_empleado, valores_empleado)
+        try:
+            cursor = self.conexion.cursor()
 
-        # Realiza el commit de los cambios en la base de datos
-        self.conexion.commit()
-        cursor.close()  # Cierra el cursor
-        print("Empleado agregado correctamente.")
+            # Inserta los datos en la tabla personas
+            sql_persona = "INSERT INTO personas (nombre, direccion, telefono, email) VALUES (%s, %s, %s, %s)"
+            valores_persona = (empleado.nombre, empleado.direccion, empleado.telefono, empleado.email)
+            cursor.execute(sql_persona, valores_persona)
 
-    # Método para modificar un empleado
+            # Obtiene el ID generado automáticamente para la persona
+            empleado_id = cursor.lastrowid
+
+            # Inserta los datos en la tabla empleados
+            sql_empleado = "INSERT INTO empleados (id, salario, rut, contraseña, rol) VALUES (%s, %s, %s, %s, %s)"
+            valores_empleado = (empleado_id, empleado.salario, empleado.rut, empleado.contraseña, empleado.rol)
+            cursor.execute(sql_empleado, valores_empleado)
+
+            self.conexion.commit()
+            print(f"Empleado agregado correctamente con ID {empleado_id}.")
+        except mysql.connector.Error as err:
+            print(f"Error al agregar empleado: {err}")
+        finally:
+            cursor.close()
+
+    # Método para verificar el rol de un usuario
+    def verificar_usuario(self, rut, contraseña):
+        if not self.conexion:
+            print("La conexión a la base de datos no está disponible.")
+            return None
+
+        try:
+            cursor = self.conexion.cursor()
+
+            # Verificar si el RUT y la contraseña coinciden
+            sql = "SELECT contraseña, rol FROM empleados WHERE rut = %s"
+            cursor.execute(sql, (rut,))
+            resultado = cursor.fetchone()
+
+            if resultado:
+                # Compara la contraseña cifrada
+                contrasena_db = resultado[0]
+                if contrasena_db == cifrar_contraseña(contraseña):  # Cifra la contraseña y la compara
+                    return resultado[1]  # Devuelve el rol del usuario
+                else:
+                    print("Contraseña incorrecta.")
+                    return None
+            else:
+                print("Usuario no encontrado.")
+                return None
+        except mysql.connector.Error as err:
+            print(f"Error al verificar usuario: {err}")
+            return None
+        finally:
+            cursor.close()
+
+    # Método para modificar el salario de un empleado
     def modificar_empleado(self, empleado_id, nuevo_salario):
-        cursor = self.conexion.cursor()
-        # Actualiza el salario del empleado según su ID
-        sql = "UPDATE empleados SET salario = %s WHERE id = %s"
-        cursor.execute(sql, (nuevo_salario, empleado_id))
-        # Realiza el commit de los cambios
-        self.conexion.commit()
-        cursor.close()  # Cierra el cursor
-        print("Empleado modificado correctamente.")
+        if not self.conexion:
+            print("La conexión a la base de datos no está disponible.")
+            return
+
+        try:
+            cursor = self.conexion.cursor()
+            sql = "UPDATE empleados SET salario = %s WHERE id = %s"
+            cursor.execute(sql, (nuevo_salario, empleado_id))
+            self.conexion.commit()
+            print("Empleado modificado correctamente.")
+        except mysql.connector.Error as err:
+            print(f"Error al modificar empleado: {err}")
+        finally:
+            cursor.close()
 
     # Método para eliminar un empleado
     def eliminar_empleado(self, empleado_id):
-        cursor = self.conexion.cursor()
-        # Elimina los datos del empleado de la tabla "empleados"
-        sql_empleado = "DELETE FROM empleados WHERE id = %s"
-        cursor.execute(sql_empleado, (empleado_id,))
+        if not self.conexion:
+            print("La conexión a la base de datos no está disponible.")
+            return
 
-        # Elimina los datos del empleado de la tabla "personas"
-        sql_persona = "DELETE FROM personas WHERE id = %s"
-        cursor.execute(sql_persona, (empleado_id,))
+        try:
+            cursor = self.conexion.cursor()
+            sql_empleado = "DELETE FROM empleados WHERE id = %s"
+            cursor.execute(sql_empleado, (empleado_id,))
 
-        # Realiza el commit de los cambios
-        self.conexion.commit()
-        cursor.close()  # Cierra el cursor
-        print("Empleado eliminado correctamente.")
+            sql_persona = "DELETE FROM personas WHERE id = %s"
+            cursor.execute(sql_persona, (empleado_id,))
 
-# Función para validar datos de tipo float (salarios)
+            self.conexion.commit()
+            print("Empleado eliminado correctamente.")
+        except mysql.connector.Error as err:
+            print(f"Error al eliminar empleado: {err}")
+        finally:
+            cursor.close()
+
+# Funciones de validación de datos
 def validar_float(mensaje):
     while True:
         try:
-            valor = float(input(mensaje))  # Pide un valor de tipo float
-            return valor  # Retorna el valor si es válido
+            valor = float(input(mensaje))
+            return valor
         except ValueError:
-            print("Por favor ingrese un número válido.")  # Si ocurre un error, pide nuevamente el dato
+            print("Por favor ingrese un número válido.")
 
-# Función para validar datos de tipo int (ID del empleado)
 def validar_int(mensaje):
     while True:
         try:
-            valor = int(input(mensaje))  # Pide un valor de tipo entero
-            return valor  # Retorna el valor si es válido
+            valor = int(input(mensaje))
+            return valor
         except ValueError:
-            print("Por favor ingrese un número entero válido.")  # Si ocurre un error, pide nuevamente el dato
+            print("Por favor ingrese un número entero válido.")
 
-# Función para validar un email
 def validar_email(mensaje):
     while True:
-        email = input(mensaje)  # Solicita el email del usuario
-        if "@" in email and "." in email:  # Verifica que tenga el formato adecuado
-            return email  # Retorna el email si es válido
+        email = input(mensaje)
+        if "@" in email and "." in email:
+            return email
         else:
-            print("Por favor ingrese un email válido.")  # Si no es válido, lo solicita nuevamente
+            print("Por favor ingrese un email válido.")
 
-# Función para validar el número de teléfono
 def validar_telefono(mensaje):
     while True:
-        telefono = input(mensaje)  # Solicita el número de teléfono
-        if telefono.isdigit() and 9 <= len(telefono) <= 15:  # Verifica que sea numérico y tenga entre 9 y 15 caracteres
-            return telefono  # Retorna el teléfono si es válido
+        telefono = input(mensaje)
+        if telefono.isdigit() and 9 <= len(telefono) <= 15:
+            return telefono
         else:
             print("Por favor ingrese un número de teléfono válido (solo números, entre 9 y 15 dígitos).")
 
-# Función para mostrar el menú y procesar las opciones
+# Función para mostrar el menú principal
 def menu():
-    db = BaseDeDatos()  # Crea una instancia de la clase BaseDeDatos
+    db = BaseDeDatos()
 
     while True:
-        # Muestra el menú con las opciones disponibles
         print("\nSeleccione una opción:")
+        print("1. Iniciar sesión")
+        print("2. Salir")
+        opcion = input("Ingrese el número de opción: ")
+
+        if opcion == "1":
+            # Solicitar RUT y contraseña
+            rut = input("Ingrese el RUT del empleado: ")
+            contraseña = input("Ingrese la contraseña del empleado: ")
+            rol = db.verificar_usuario(rut, contraseña)
+
+            if rol:
+                print(f"Acceso concedido. Rol: {rol}")
+                if rol == 'admin':
+                    print("Acceso completo para modificar la base de datos.")
+                    # Aquí mostrarías el menú de opciones para modificar la base de datos
+                    menu_admin(db)  # Función que contiene las opciones para administradores
+                else:
+                    print("Acceso solo para consulta.")
+                    menu_usuario()  # Función que contiene opciones limitadas solo para usuarios
+
+            else:
+                print("Login fallido.")
+
+        elif opcion == "2":
+            db.cerrar_conexion()
+            print("Saliendo del programa.")
+            break
+        else:
+            print("Opción no válida, por favor intente de nuevo.")
+
+# Menú para administradores
+def menu_admin(db):
+    while True:
+        print("\nMenú de Administrador:")
         print("1. Agregar empleado")
         print("2. Modificar salario de empleado")
         print("3. Eliminar empleado")
@@ -150,34 +236,39 @@ def menu():
         opcion = input("Ingrese el número de opción: ")
 
         if opcion == "1":
-            # Agregar empleado
-            nombre = input("Ingrese el nombre del empleado: ")
-            direccion = input("Ingrese la dirección del empleado: ")
-            telefono = validar_telefono("Ingrese el teléfono del empleado: ")  # Validación del teléfono
-            email = validar_email("Ingrese el email del empleado: ")  # Validación del email
-            salario = validar_float("Ingrese el salario del empleado: ")  # Validación del salario
-            empleado = Empleado(nombre, direccion, telefono, email, salario)  # Crea un objeto de la clase Empleado
-            db.agregar_empleado(empleado)  # Llama al método para agregar el empleado a la base de datos
-
+            # Código para agregar empleado
+            pass
         elif opcion == "2":
-            # Modificar empleado
-            empleado_id = validar_int("Ingrese el ID del empleado a modificar: ")  # Validación del ID
-            nuevo_salario = validar_float("Ingrese el nuevo salario del empleado: ")  # Validación del nuevo salario
-            db.modificar_empleado(empleado_id, nuevo_salario)  # Llama al método para modificar el salario
-
+            # Código para modificar salario de empleado
+            pass
         elif opcion == "3":
-            # Eliminar empleado
-            empleado_id = validar_int("Ingrese el ID del empleado a eliminar: ")  # Validación del ID
-            db.eliminar_empleado(empleado_id)  # Llama al método para eliminar el empleado
-
+            # Código para eliminar empleado
+            pass
         elif opcion == "4":
-            # Salir
-            db.cerrar_conexion()  # Cierra la conexión a la base de datos
-            print("Saliendo del programa.")  # Imprime mensaje de salida
             break
         else:
-            print("Opción no válida, por favor intente de nuevo.")  # Si la opción es incorrecta, muestra un mensaje
+            print("Opción no válida.")
+
+# Menú para usuarios (solo pueden consultar datos)
+def menu_usuario():
+    while True:
+        print("\nMenú de Usuario:")
+        print("1. Ver empleados")
+        print("2. Ver proyectos")
+        print("3. Salir")
+        opcion = input("Ingrese el número de opción: ")
+
+        if opcion == "1":
+            # Mostrar empleados
+            pass
+        elif opcion == "2":
+            # Mostrar proyectos
+            pass
+        elif opcion == "3":
+            break
+        else:
+            print("Opción no válida.")
 
 # Ejecución del programa
 if __name__ == "__main__":
-    menu()  # Llama a la función para mostrar el menú.
+    menu()
