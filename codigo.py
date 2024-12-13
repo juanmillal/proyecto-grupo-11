@@ -189,42 +189,6 @@ def validar_telefono(mensaje):
         else:
             print("Por favor ingrese un número de teléfono válido (solo números, entre 9 y 15 dígitos).")
 
-# Función para mostrar el menú principal
-def menu():
-    db = BaseDeDatos()
-
-    while True:
-        print("\nSeleccione una opción:")
-        print("1. Iniciar sesión")
-        print("2. Salir")
-        opcion = input("Ingrese el número de opción: ")
-
-        if opcion == "1":
-            # Solicitar RUT y contraseña
-            rut = input("Ingrese el RUT del empleado: ")
-            contraseña = input("Ingrese la contraseña del empleado: ")
-            rol = db.verificar_usuario(rut, contraseña)
-
-            if rol:
-                print(f"Acceso concedido. Rol: {rol}")
-                if rol == 'admin':
-                    print("Acceso completo para modificar la base de datos.")
-                    # Aquí mostrarías el menú de opciones para modificar la base de datos
-                    menu_admin(db)  # Función que contiene las opciones para administradores
-                else:
-                    print("Acceso solo para consulta.")
-                    menu_usuario()  # Función que contiene opciones limitadas solo para usuarios
-
-            else:
-                print("Login fallido.")
-
-        elif opcion == "2":
-            db.cerrar_conexion()
-            print("Saliendo del programa.")
-            break
-        else:
-            print("Opción no válida, por favor intente de nuevo.")
-
 # Menú para administradores
 def menu_admin(db):
     while True:
@@ -236,18 +200,45 @@ def menu_admin(db):
         opcion = input("Ingrese el número de opción: ")
 
         if opcion == "1":
-            # Código para agregar empleado
-            pass
+            nombre = input("Ingrese el nombre del empleado: ")
+            direccion = input("Ingrese la dirección del empleado: ")
+            telefono = validar_telefono("Ingrese el teléfono del empleado: ")
+            email = validar_email("Ingrese el email del empleado: ")
+            salario = validar_float("Ingrese el salario del empleado: ")
+            rut = input("Ingrese el RUT del empleado: ")
+            contraseña = input("Ingrese la contraseña del empleado: ")
+            contraseña_cifrada = cifrar_contraseña(contraseña)
+            rol = input("Ingrese el rol del empleado ('admin' o 'usuario'): ")
+
+            empleado = Empleado(
+                id=None,  # Se genera automáticamente en la base de datos
+                nombre=nombre,
+                direccion=direccion,
+                telefono=telefono,
+                email=email,
+                salario=salario,
+                rut=rut,
+                contraseña=contraseña_cifrada,
+                rol=rol
+            )
+
+            db.agregar_empleado(empleado)
+
         elif opcion == "2":
-            # Código para modificar salario de empleado
-            pass
+            empleado_id = validar_int("Ingrese el ID del empleado cuyo salario desea modificar: ")
+            nuevo_salario = validar_float("Ingrese el nuevo salario del empleado: ")
+            db.modificar_empleado(empleado_id, nuevo_salario)
+
         elif opcion == "3":
-            # Código para eliminar empleado
-            pass
+            empleado_id = validar_int("Ingrese el ID del empleado que desea eliminar: ")
+            db.eliminar_empleado(empleado_id)
+
         elif opcion == "4":
+            print("Saliendo del menú de administrador.")
             break
+
         else:
-            print("Opción no válida.")
+            print("Opción no válida, por favor intente de nuevo.")
 
 # Menú para usuarios (solo pueden consultar datos)
 def menu_usuario():
@@ -259,15 +250,45 @@ def menu_usuario():
         opcion = input("Ingrese el número de opción: ")
 
         if opcion == "1":
-            # Mostrar empleados
-            pass
+            print("Funcionalidad de consulta de empleados aún no implementada.")
         elif opcion == "2":
-            # Mostrar proyectos
-            pass
+            print("Funcionalidad de consulta de proyectos aún no implementada.")
         elif opcion == "3":
+            print("Saliendo del menú de usuario.")
             break
         else:
             print("Opción no válida.")
+
+# Función para mostrar el menú principal
+def menu():
+    db = BaseDeDatos()
+
+    while True:
+        print("\nSeleccione una opción:")
+        print("1. Iniciar sesión")
+        print("2. Salir")
+        opcion = input("Ingrese el número de opción: ")
+
+        if opcion == "1":
+            rut = input("Ingrese el RUT del empleado: ")
+            contraseña = input("Ingrese la contraseña del empleado: ")
+            rol = db.verificar_usuario(rut, contraseña)
+
+            if rol:
+                print(f"Acceso concedido. Rol: {rol}")
+                if rol == 'admin':
+                    menu_admin(db)
+                else:
+                    menu_usuario()
+            else:
+                print("Login fallido.")
+
+        elif opcion == "2":
+            db.cerrar_conexion()
+            print("Saliendo del programa.")
+            break
+        else:
+            print("Opción no válida, por favor intente de nuevo.")
 
 # Ejecución del programa
 if __name__ == "__main__":
