@@ -58,6 +58,26 @@ class BaseDeDatos:
             self.conexion.close()
             print("Conexión cerrada.")
 
+    # Método para verificar si ya existe un administrador en la base de datos
+    def existe_administrador(self):
+        if not self.conexion:
+            print("La conexión a la base de datos no está disponible.")
+            return False
+
+        try:
+            cursor = self.conexion.cursor()
+            sql = "SELECT COUNT(*) FROM empleados WHERE rol = 'admin'"
+            cursor.execute(sql)
+            resultado = cursor.fetchone()
+
+            # Si el conteo es mayor que 0, existe al menos un administrador
+            return resultado[0] > 0
+        except mysql.connector.Error as err:
+            print(f"Error al verificar administrador: {err}")
+            return False
+        finally:
+            cursor.close()
+
     # Método para agregar un empleado a la base de datos
     def agregar_empleado(self, empleado):
         if not self.conexion:
@@ -189,6 +209,16 @@ def validar_telefono(mensaje):
         else:
             print("Por favor ingrese un número de teléfono válido (solo números, entre 9 y 15 dígitos).")
 
+# Función para confirmar la contraseña
+def ingresar_contraseña():
+    while True:
+        contraseña = input("Ingrese la contraseña: ")
+        confirmar_contraseña = input("Confirme la contraseña: ")
+        if contraseña == confirmar_contraseña:
+            return contraseña
+        else:
+            print("Las contraseñas no coinciden. Intente nuevamente.")
+
 # Menú para administradores
 def menu_admin(db):
     while True:
@@ -206,7 +236,7 @@ def menu_admin(db):
             email = validar_email("Ingrese el email del empleado: ")
             salario = validar_float("Ingrese el salario del empleado: ")
             rut = input("Ingrese el RUT del empleado: ")
-            contraseña = input("Ingrese la contraseña del empleado: ")
+            contraseña = ingresar_contraseña()  # Llamada a la nueva función
             contraseña_cifrada = cifrar_contraseña(contraseña)
             rol = input("Ingrese el rol del empleado ('admin' o 'usuario'): ")
 
@@ -259,9 +289,52 @@ def menu_usuario():
         else:
             print("Opción no válida.")
 
-# Función para mostrar el menú principal
+def verificar_y_agregar_administrador(db):
+    """
+    Verifica si existe un administrador en la base de datos. 
+    Si no existe, solicita los datos para agregar uno.
+    """
+    if not db.existe_administrador():
+        print("No se ha encontrado ningún administrador en la base de datos.")
+        print("Debe registrar un administrador para continuar.")
+
+        # Solicitar datos del administrador
+        nombre = input("Ingrese el nombre del administrador: ")
+        direccion = input("Ingrese la dirección del administrador: ")
+        telefono = validar_telefono("Ingrese el teléfono del administrador: ")
+        email = validar_email("Ingrese el email del administrador: ")
+        salario = validar_float("Ingrese el salario del administrador: ")
+        rut = input("Ingrese el RUT del administrador: ")
+        contraseña = ingresar_contraseña()
+        contraseña_cifrada = cifrar_contraseña(contraseña)
+        rol = 'admin'
+
+        # Crear un objeto Empleado
+        admin = Empleado(
+            id=None,  # Se genera automáticamente en la base de datos
+            nombre=nombre,
+            direccion=direccion,
+            telefono=telefono,
+            email=email,
+            salario=salario,
+            rut=rut,
+            contraseña=contraseña_cifrada,
+            rol=rol
+        )
+
+        # Agregar administrador a la base de datos
+        db.agregar_empleado(admin)
+        print("Administrador registrado correctamente.")
+    else:
+        print("Ya existe al menos un administrador en la base de datos.")
+
+# Menú principal
 def menu():
-    db = BaseDeDatos()
+    """Muestra el menú principal del programa."""
+    db = BaseDeDatos()  # Instanciar conexión con la base de datos
+    
+    # Verificar y agregar un administrador si no existe
+    verificar_y_agregar_administrador(db)
 
     while True:
         print("\nSeleccione una opción:")
