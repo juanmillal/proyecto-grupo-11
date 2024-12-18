@@ -1,6 +1,42 @@
 import mysql.connector
 from abc import ABC, abstractmethod
 import hashlib
+import requests  # Importar requests para el manejo de APIs
+
+# Clase para manejar interacciones con APIs
+class APIService:
+    def __init__(self, base_url, api_key=None):
+        """Inicializa el servicio API con la URL base y una clave opcional."""
+        self.base_url = base_url
+        self.api_key = api_key
+
+    def get(self, endpoint, params=None):
+        """Realiza una solicitud GET al endpoint especificado."""
+        url = f"{self.base_url}/{endpoint}"
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        response = requests.get(url, headers=headers, params=params)
+        return response.json()
+
+    def post(self, endpoint, data=None):
+        """Realiza una solicitud POST al endpoint especificado con datos JSON."""
+        url = f"{self.base_url}/{endpoint}"
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"} if self.api_key else {}
+        response = requests.post(url, headers=headers, json=data)
+        return response.json()
+
+    def put(self, endpoint, data=None):
+        """Realiza una solicitud PUT al endpoint especificado con datos JSON."""
+        url = f"{self.base_url}/{endpoint}"
+        headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"} if self.api_key else {}
+        response = requests.put(url, headers=headers, json=data)
+        return response.json()
+
+    def delete(self, endpoint):
+        """Realiza una solicitud DELETE al endpoint especificado."""
+        url = f"{self.base_url}/{endpoint}"
+        headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
+        response = requests.delete(url, headers=headers)
+        return response.status_code
 
 # Función para conectar a la base de datos
 def conectar_db():
@@ -328,21 +364,141 @@ def verificar_y_agregar_administrador(db):
     else:
         print("Ya existe al menos un administrador en la base de datos.")
 
+
+# Instancias de servicios API
+json_placeholder = APIService("https://jsonplaceholder.typicode.com")
+serper = APIService("https://api.serper.dev", api_key="6dd0dc45bb8e7193c5b6fd88309a56b12ed82817")
+
+# Funciones para manejar interacciones con JSONPlaceholder
+def menu_jsonplaceholder():
+    """Menú para manejar datos desde JSONPlaceholder."""
+    print("\nMenú de JSONPlaceholder:")
+    print("1. Ver posts")
+    print("2. Crear un nuevo post")
+    print("3. Actualizar un post")
+    print("4. Eliminar un post")
+    print("5. Volver")
+    opcion = input("Seleccione una opción: ")
+
+    if opcion == "1":
+        # Solicita los primeros 5 posts
+        posts = json_placeholder.get("posts")
+        for post in posts[:5]:
+            print(f"ID: {post['id']}, Título: {post['title']}")
+    elif opcion == "2":
+        # Crea un nuevo post
+        nuevo_post = {
+            "title": input("Título: "),
+            "body": input("Contenido: "),
+            "userId": 1
+        }
+        post_creado = json_placeholder.post("posts", nuevo_post)
+        print("Post creado:", post_creado)
+    elif opcion == "3":
+        # Actualiza un post existente
+        post_id = input("ID del post a actualizar: ")
+        actualizado = {
+            "title": input("Nuevo título: "),
+            "body": input("Nuevo contenido: ")
+        }
+        post_actualizado = json_placeholder.put(f"posts/{post_id}", actualizado)
+        print("Post actualizado:", post_actualizado)
+    elif opcion == "4":
+        # Elimina un post existente
+        post_id = input("ID del post a eliminar: ")
+        resultado = json_placeholder.delete(f"posts/{post_id}")
+        print("Post eliminado:", resultado)
+    elif opcion == "5":
+        # Vuelve al menú principal
+        return
+
+# Función para manejar búsquedas con Serper.dev
+def menu_serper():
+    """Realiza búsquedas utilizando Serper.dev."""
+    print("\nBúsqueda con Serper.dev:")
+    query = input("Ingrese el término de búsqueda: ")
+    resultados = serper.post("search", {"q": query})
+    print("Resultados:")
+    for resultado in resultados.get("organic", [])[:5]:
+        print(f"Título: {resultado['title']}, URL: {resultado['link']}")
+
+def menu_jsonplaceholder():
+    """Menú para manejar datos desde JSONPlaceholder."""
+    print("\nMenú de JSONPlaceholder:")
+    print("1. Ver posts")
+    print("2. Crear un nuevo post")
+    print("3. Actualizar un post")
+    print("4. Eliminar un post")
+    print("5. Volver")
+    opcion = input("Seleccione una opción: ")
+
+    if opcion == "1":
+        # Solicita los primeros 5 posts
+        posts = json_placeholder.get("posts")
+        for post in posts[:5]:
+            print(f"ID: {post['id']}, Título: {post['title']}")
+    elif opcion == "2":
+        # Crea un nuevo post
+        nuevo_post = {
+            "title": input("Título: "),
+            "body": input("Contenido: "),
+            "userId": 1
+        }
+        post_creado = json_placeholder.post("posts", nuevo_post)
+        print("Post creado:", post_creado)
+    elif opcion == "3":
+        # Actualiza un post existente
+        post_id = input("ID del post a actualizar: ")
+        actualizado = {
+            "title": input("Nuevo título: "),
+            "body": input("Nuevo contenido: ")
+        }
+        post_actualizado = json_placeholder.put(f"posts/{post_id}", actualizado)
+        print("Post actualizado:", post_actualizado)
+    elif opcion == "4":
+        # Elimina un post existente
+        post_id = input("ID del post a eliminar: ")
+        resultado = json_placeholder.delete(f"posts/{post_id}")
+        print("Post eliminado:", resultado)
+    elif opcion == "5":
+        # Vuelve al menú principal
+        return
+
+def menu_serper():
+    """Realiza búsquedas utilizando Serper.dev."""
+    print("\nBúsqueda con Serper.dev:")
+    query = input("Ingrese el término de búsqueda: ")  # Término a buscar
+    resultados = serper.post("search", {"q": query})  # Realiza la búsqueda con el término ingresado
+    
+    # Imprime toda la respuesta para depurar
+    print("Respuesta completa de Serper.dev:")
+    print(resultados)
+    
+    # Muestra los primeros 5 resultados de búsqueda (si están disponibles)
+    print("\nResultados:")
+    if "organic" in resultados:
+        for resultado in resultados["organic"][:5]:
+            print(f"Título: {resultado.get('title')}, URL: {resultado.get('link')}")
+    else:
+        print("No se encontraron resultados o la clave 'organic' no está presente en la respuesta.")
+
+
 # Menú principal
 def menu():
     """Muestra el menú principal del programa."""
-    db = BaseDeDatos()  # Instanciar conexión con la base de datos
-    
-    # Verificar y agregar un administrador si no existe
+    db = BaseDeDatos()  # Instancia la conexión con la base de datos
     verificar_y_agregar_administrador(db)
 
     while True:
         print("\nSeleccione una opción:")
         print("1. Iniciar sesión")
-        print("2. Salir")
+        print("2. Consultar datos desde JSONPlaceholder")
+        print("3. Realizar una búsqueda con Serper.dev")
+        print("4. Salir")
         opcion = input("Ingrese el número de opción: ")
 
         if opcion == "1":
+            # Maneja el inicio de sesión
             rut = input("Ingrese el RUT del empleado: ")
             contraseña = input("Ingrese la contraseña del empleado: ")
             rol = db.verificar_usuario(rut, contraseña)
@@ -357,12 +513,28 @@ def menu():
                 print("Login fallido.")
 
         elif opcion == "2":
+            menu_jsonplaceholder()
+
+        elif opcion == "3":
+            menu_serper()
+
+        elif opcion == "4":
             db.cerrar_conexion()
             print("Saliendo del programa.")
             break
+
         else:
             print("Opción no válida, por favor intente de nuevo.")
 
-# Ejecución del programa
+# Funciones de menú específicas por rol
+def menu_admin(db):
+    """Menú exclusivo para administradores."""
+    print("Menú del administrador")
+
+def menu_usuario():
+    """Menú exclusivo para usuarios normales."""
+    print("Menú del usuario")
+
+# Inicia el programa
 if __name__ == "__main__":
     menu()
